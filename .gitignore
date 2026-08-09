@@ -1,0 +1,6 @@
+data/              # ignore the entire data folder
+chroma_db/         # ignore the entire chroma_db folder
+*.pyc              # ignore any file ending in .pyc
+__pycache__/       # ignore this folder anywhere in the project
+.env               # ignore this specific file
+venv/              # ignore the virtual environment folder
