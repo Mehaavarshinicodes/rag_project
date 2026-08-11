@@ -10,10 +10,10 @@ import streamlit as st
 
 st.title(" 🤖RAG Project ")
 
-# uploaded_file = st.file_uploader(
-#     "Upload a PDF",
-#     type=["pdf"]
-# )
+uploaded_file = st.file_uploader(
+    "Upload a PDF",
+    type=["pdf"]
+)
 # Store conversation history across Streamlit reruns
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -47,7 +47,7 @@ if "chat_history" not in st.session_state:
 
 #creating the embedding model
 #------------------------------------------------------------------
-def get_vector_store():
+def get_vector_store(uploaded_file):
     embedding_model = OllamaEmbeddings(
         model="nomic-embed-text"
     )
@@ -62,18 +62,30 @@ def get_vector_store():
 
 
     #this checks if the embedding already exists. if so, it loads it. else a new file is created,the document loader and textsplitter is carried on and the vectors are stored. note how we use 2 different chromadb functions
-    if os.path.exists("chroma_db"):
+    document_name=os.path.splitext(uploaded_file.name)[0]
+    persist_directory=os.path.join(
+        "chroma_db",
+        document_name
+    )
+    
+    
+    if os.path.exists(persist_directory):
         print("Loading existing ChromaDB...")
 
         vector_store = Chroma(
-            persist_directory="chroma_db",
+            persist_directory=persist_directory,
             embedding_function=embedding_model
         )
 
     else:
         print("Creating ChromaDB...")
 
-        loader = PyPDFLoader("data/Java_Notes.pdf")
+        temp_file="temp.pdf"
+
+        with open(temp_file,'wb') as f:
+            f.write(uploaded_file.getbuffer()) #uploaded_file refers to the file uploaded by user
+
+        loader = PyPDFLoader(temp_file)
         documents = loader.load()
 
         text_splitter = RecursiveCharacterTextSplitter(
@@ -86,7 +98,7 @@ def get_vector_store():
         vector_store = Chroma.from_documents(
             documents=chunks,
             embedding=embedding_model,
-            persist_directory="chroma_db"
+            persist_directory=persist_directory
         )
 
     return vector_store
@@ -132,13 +144,14 @@ def get_answer(question,retriever,llm,prompt):
 
 #------------------------------------------------------------------------
 
+if uploaded_file: #we check using if condition since we need to run the below code only if we have an uploaded file
+    vector_store=get_vector_store(uploaded_file)
 
-vector_store=get_vector_store()
+    #retrieval
+    retriever = vector_store.as_retriever(
+        search_kwargs={"k": 3}
+    )
 
-#retrieval
-retriever = vector_store.as_retriever(
-    search_kwargs={"k": 3}
-)
 
 #testing retriever
 #results = retriever.invoke("What are reference types?")
@@ -210,30 +223,31 @@ Standalone question:
     # print("\nBot: ",answer)
     # #print("Rewritten: ",rewritten_question) this shows how the probing ambiguous question gets rewritten
 
-question = st.chat_input("Ask something about Java...")
+if uploaded_file:
+    question = st.chat_input("Ask something about the uploaded PDF...")
 
-if question:
-    rewritten_question = rewrite_question(
-        question,
-        st.session_state.chat_history,
-        llm,
-        rewrite_prompt
-    )
+    if question:
+        rewritten_question = rewrite_question(
+            question,
+            st.session_state.chat_history,
+            llm,
+            rewrite_prompt
+        )
 
-    answer = get_answer(
-        rewritten_question,
-        retriever,
-        llm,
-        prompt
-    )
+        answer = get_answer(
+            rewritten_question,
+            retriever,
+            llm,
+            prompt
+        )
 
-    st.session_state.chat_history.append(
-        ("Human", question)
-    )
+        st.session_state.chat_history.append(
+            ("Human", question)
+        )
 
-    st.session_state.chat_history.append(
-        ("AI", answer)
-    )
+        st.session_state.chat_history.append(
+            ("AI", answer)
+        )
 
 for role, message in st.session_state.chat_history:
 
