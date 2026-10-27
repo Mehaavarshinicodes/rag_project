@@ -8,7 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 import os
 import streamlit as st
 
-st.title(" 🤖RAG Project ")
+st.title(" 🤖RAG ")
 
 uploaded_file = st.file_uploader(
     "Upload a PDF",
